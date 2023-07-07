@@ -1,3 +1,5 @@
+use std::fs;
+
 use macroquad::prelude::*;
 
 const MOVEMENT_SPEED: f32 = 200.0;
@@ -13,6 +15,10 @@ struct Shape {
 
 #[macroquad::main("McGame")]
 async fn main() {
+    let mut score: u32 = 0;
+    let mut high_score: u32 = fs::read_to_string("highscore.dat")
+        .map_or(Ok(0), |i| i.parse::<u32>())
+        .unwrap_or(0);
     rand::srand(miniquad::date::now() as u64);
     let mut squares = vec![];
     let mut circle = Shape {
@@ -24,11 +30,29 @@ async fn main() {
     };
     let mut bullets: Vec<Shape> = vec![];
     let mut game_over = false;
+    let mut reached_high_score = false;
     loop {
         if !game_over {
             let delta_time = get_frame_time();
 
-            //clear_background(DARKPURPLE);
+            clear_background(DARKPURPLE);
+
+            draw_text(
+                format!("Poäng: {}", score).as_str(),
+                10.0,
+                35.0,
+                25.0,
+                WHITE,
+            );
+            let highscore_text = format!("High score: {}", high_score);
+            let text_dimensions = measure_text(highscore_text.as_str(), None, 25, 1.0);
+            draw_text(
+                highscore_text.as_str(),
+                screen_width() - text_dimensions.width - 10.0,
+                35.0,
+                25.0,
+                WHITE,
+            );
 
             if is_key_down(KeyCode::Right) {
                 circle.x += MOVEMENT_SPEED * delta_time;
@@ -79,6 +103,8 @@ async fn main() {
                     if bullet.collides_with(square) {
                         bullet.collided = true;
                         square.collided = true;
+                        score += square.size.round() as u32;
+                        high_score = high_score.max(score);
                     }
                 }
             }
@@ -105,6 +131,10 @@ async fn main() {
 
             if squares.iter().any(|square| circle.collides_with(square)) {
                 game_over = true;
+                if score == high_score {
+                    fs::write("highscore.dat", high_score.to_string()).ok();
+                    reached_high_score = true;
+                }
             }
         }
 
@@ -114,21 +144,31 @@ async fn main() {
                 bullets.clear();
                 circle.x = screen_width() / 2.0;
                 circle.y = screen_height() / 2.0;
+                score = 0;
                 game_over = false;
+                reached_high_score = false;
             } else {
-                let text = "Game Over!";
-                let text_dimensions = measure_text(text, None, 50, 1.0);
-                draw_text(
-                    text,
-                    screen_width() / 2.0 - text_dimensions.width / 2.0,
-                    screen_height() / 2.0,
-                    50.0,
-                    RED,
-                );
+                show_message("Game Over!", 0.0, RED);
+                if reached_high_score {
+                    show_message("Congratulations! High score!", 1.0, GREEN);
+                } else {
+                    show_message("Better luck next time!", 1.0, GREEN);
+                }
             }
         }
         next_frame().await
     }
+}
+
+fn show_message(text: &str, row: f32, color: Color) {
+    let text_dimensions = measure_text(text, None, 50, 1.0);
+    draw_text(
+        text,
+        screen_width() / 2.0 - text_dimensions.width / 2.0,
+        screen_height() / 2.0 + text_dimensions.height * row * 1.40,
+        50.0,
+        color,
+    );
 }
 
 impl Shape {
