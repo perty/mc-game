@@ -2,6 +2,24 @@ use std::fs;
 
 use macroquad::prelude::*;
 
+const FRAGMENT_SHADER: &str = include_str!("starfield-shader.glsl");
+
+const VERTEX_SHADER: &str = "#version 100
+attribute vec3 position;
+attribute vec2 texcoord;
+attribute vec4 color0;
+varying float iTime;
+
+uniform mat4 Model;
+uniform mat4 Projection;
+uniform vec4 _Time;
+
+void main() {
+    gl_Position = Projection * Model * vec4(position, 1);
+    iTime = _Time.x;
+}
+";
+
 const MOVEMENT_SPEED: f32 = 200.0;
 const RADIUS: f32 = 16.0;
 
@@ -38,8 +56,39 @@ async fn main() {
     let mut bullets: Vec<Shape> = vec![];
     let mut game_state = GameState::MainMenu;
     let mut reached_high_score = false;
+
+    let mut direction_modifier = 0.0;
+    let render_target = render_target(320, 150);
+    render_target.texture.set_filter(FilterMode::Nearest);
+    let material = load_material(
+        VERTEX_SHADER,
+        FRAGMENT_SHADER,
+        MaterialParams {
+            uniforms: vec![
+                ("iResolution".to_owned(), UniformType::Float2),
+                ("direction_modifier".to_owned(), UniformType::Float1),
+            ],
+            ..Default::default()
+        },
+    )
+        .unwrap();
+
     loop {
-        clear_background(DARKPURPLE);
+        clear_background(BLACK);
+        material.set_uniform("iResolution", (screen_width(), screen_height()));
+        material.set_uniform("direction_modifier", direction_modifier);
+        gl_use_material(material);
+        draw_texture_ex(
+            render_target.texture,
+            0.,
+            0.,
+            WHITE,
+            DrawTextureParams {
+                dest_size: Some(vec2(screen_width(), screen_height())),
+                ..Default::default()
+            },
+        );
+        gl_use_default_material();
 
         match game_state {
             GameState::MainMenu => {
@@ -79,9 +128,11 @@ async fn main() {
 
                 if is_key_down(KeyCode::Right) {
                     circle.x += MOVEMENT_SPEED * delta_time;
+                    direction_modifier += 0.05 * delta_time;
                 }
                 if is_key_down(KeyCode::Left) {
                     circle.x -= MOVEMENT_SPEED * delta_time;
+                    direction_modifier -= 0.05 * delta_time;
                 }
                 if is_key_down(KeyCode::Down) {
                     circle.y += MOVEMENT_SPEED * delta_time;
