@@ -201,6 +201,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "macroquad-particles"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "33df959258a981c42724c8b48390b6d8f405f353e1729689bd2a22be96e273c3"
+dependencies = [
+ "macroquad",
+]
+
+[[package]]
 name = "macroquad_macro"
 version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -226,6 +235,7 @@ name = "mc-game"
 version = "0.1.0"
 dependencies = [
  "macroquad",
+ "macroquad-particles",
 ]
 
 [[package]]

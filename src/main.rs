@@ -1,6 +1,7 @@
 use std::fs;
 
 use macroquad::prelude::*;
+use macroquad_particles::{self as particles, ColorCurve, Emitter, EmitterConfig};
 
 const FRAGMENT_SHADER: &str = include_str!("starfield-shader.glsl");
 
@@ -54,6 +55,7 @@ async fn main() {
         collided: false,
     };
     let mut bullets: Vec<Shape> = vec![];
+    let mut explosions: Vec<(Emitter, Vec2)> = vec![];
     let mut game_state = GameState::MainMenu;
     let mut reached_high_score = false;
 
@@ -98,6 +100,7 @@ async fn main() {
                 if is_key_pressed(KeyCode::Space) {
                     squares.clear();
                     bullets.clear();
+                    explosions.clear();
                     circle.x = screen_width() / 2.0;
                     circle.y = screen_height() / 2.0;
                     score = 0;
@@ -182,6 +185,13 @@ async fn main() {
                             square.collided = true;
                             score += square.size.round() as u32;
                             high_score = high_score.max(score);
+                            explosions.push((
+                                Emitter::new(EmitterConfig {
+                                    amount: square.size.round() as u32 * 2,
+                                    ..particle_explosion()
+                                }),
+                                vec2(square.x, square.y),
+                            ));
                         }
                     }
                 }
@@ -190,6 +200,8 @@ async fn main() {
                 squares.retain(|square| !square.collided);
                 bullets.retain(|bullet| bullet.y > 0.0 - bullet.size / 2.0);
                 bullets.retain(|bullet| !bullet.collided);
+                // And the explosions
+                explosions.retain(|(explosion, _)| explosion.config.emitting);
 
                 // Draw bullets first so they are below other shapes.
                 for bullet in &bullets {
@@ -204,6 +216,10 @@ async fn main() {
                         square.size,
                         GREEN,
                     );
+                }
+                // Draw explosions
+                for (explosion, coords) in explosions.iter_mut() {
+                    explosion.draw(*coords);
                 }
 
                 if squares.iter().any(|square| circle.collides_with(square)) {
@@ -221,7 +237,7 @@ async fn main() {
                 show_message("Pause", 0.0, WHITE);
             }
             GameState::GameOver => {
-                if is_key_pressed(KeyCode::Space) {
+                if is_key_pressed(KeyCode::Escape) {
                     game_state = GameState::MainMenu;
                     reached_high_score = false;
                 } else {
@@ -231,7 +247,7 @@ async fn main() {
                     } else {
                         show_message("Better luck next time!", 1.0, GREEN);
                     }
-                    show_message("Press space", 2.0, YELLOW);
+                    show_message("Press escape for main menu", 2.0, YELLOW);
                 }
             }
         }
@@ -248,6 +264,28 @@ fn show_message(text: &str, row: f32, color: Color) {
         50.0,
         color,
     );
+}
+
+fn particle_explosion() -> EmitterConfig {
+    EmitterConfig {
+        local_coords: false,
+        one_shot: true,
+        emitting: true,
+        lifetime: 3.0,
+        lifetime_randomness: 0.7,
+        explosiveness: 0.95,
+        initial_direction_spread: 2.0 * std::f32::consts::PI,
+        initial_velocity: 200.0,
+        initial_velocity_randomness: 0.8,
+        size: 3.0,
+        size_randomness: 0.3,
+        colors_curve: ColorCurve {
+            start: RED,
+            mid: ORANGE,
+            end: RED,
+        },
+        ..Default::default()
+    }
 }
 
 impl Shape {
