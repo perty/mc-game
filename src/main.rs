@@ -101,6 +101,23 @@ async fn main() {
         .expect("Couldn't load file");
     explosion_texture.set_filter(FilterMode::Nearest);
 
+    let enemy_small_texture: Texture2D = load_texture("enemy-small.png")
+        .await
+        .expect("Couldn't load file");
+    enemy_small_texture.set_filter(FilterMode::Nearest);
+
+    let mut enemy_small_sprite = AnimatedSprite::new(
+        17,
+        16,
+        &[Animation {
+            name: "enemy_small".to_string(),
+            row: 0,
+            frames: 2,
+            fps: 12,
+        }],
+        true,
+    );
+
     let mut score: u32 = 0;
     let mut high_score: u32 = fs::read_to_string("highscore.dat")
         .map_or(Ok(0), |i| i.parse::<u32>())
@@ -241,8 +258,11 @@ async fn main() {
                 for bullet in &mut bullets {
                     bullet.y -= bullet.speed * delta_time;
                 }
+
                 ship_sprite.update();
                 bullet_sprite.update();
+                enemy_small_sprite.update();
+
                 for square in squares.iter_mut() {
                     for bullet in bullets.iter_mut() {
                         if bullet.collides_with(square) {
@@ -298,13 +318,19 @@ async fn main() {
                     },
                 );
 
+                // Draw enemies
+                let enemy_frame = enemy_small_sprite.frame();
                 for square in &squares {
-                    draw_rectangle(
+                    draw_texture_ex(
+                        enemy_small_texture,
                         square.x - square.size / 2.0,
                         square.y - square.size / 2.0,
-                        square.size,
-                        square.size,
-                        GREEN,
+                        WHITE,
+                        DrawTextureParams {
+                            dest_size: Some(vec2(square.size, square.size)),
+                            source: Some(enemy_frame.source_rect),
+                            ..Default::default()
+                        },
                     );
                 }
                 // Draw explosions
