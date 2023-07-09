@@ -2,7 +2,9 @@ use std::fs;
 
 use macroquad::audio::{load_sound, play_sound, play_sound_once, PlaySoundParams};
 use macroquad::experimental::animation::{AnimatedSprite, Animation};
+use macroquad::hash;
 use macroquad::prelude::*;
+use macroquad::ui::{root_ui, Skin};
 use macroquad_particles::{AtlasConfig, Emitter, EmitterConfig};
 
 const FRAGMENT_SHADER: &str = include_str!("starfield-shader.glsl");
@@ -44,6 +46,44 @@ enum GameState {
 #[macroquad::main("McGame")]
 async fn main() {
     set_pc_assets_folder("assets");
+
+    let window_background = load_image("window_background.png").await.unwrap();
+    let button_background = load_image("button_background.png").await.unwrap();
+    let button_clicked_background = load_image("button_clicked_background.png").await.unwrap();
+    let font = load_file("atari_games.ttf").await.unwrap();
+    let window_style = root_ui()
+        .style_builder()
+        .background(window_background)
+        .background_margin(RectOffset::new(32.0, 76.0, 44.0, 20.0))
+        .margin(RectOffset::new(0.0, -40.0, 0.0, 0.0))
+        .build();
+    let button_style = root_ui()
+        .style_builder()
+        .background(button_background)
+        .background_clicked(button_clicked_background)
+        .background_margin(RectOffset::new(16.0, 16.0, 16.0, 16.0))
+        .margin(RectOffset::new(16.0, 0.0, -8.0, -8.0))
+        .font(&font)
+        .unwrap()
+        .text_color(WHITE)
+        .font_size(64)
+        .build();
+    let label_style = root_ui()
+        .style_builder()
+        .font(&font)
+        .unwrap()
+        .text_color(WHITE)
+        .font_size(28)
+        .build();
+    let ui_skin = Skin {
+        window_style,
+        button_style,
+        label_style,
+        ..root_ui().default_skin()
+    };
+    root_ui().push_skin(&ui_skin);
+    let window_size = vec2(370.0, 320.0);
+
     let ship_texture: Texture2D = load_texture("ship.png").await.expect("Couldn't load file");
     ship_texture.set_filter(FilterMode::Nearest);
     let bullet_texture: Texture2D = load_texture("laser-bolts.png")
@@ -184,20 +224,29 @@ async fn main() {
 
         match game_state {
             GameState::MainMenu => {
-                if is_key_pressed(KeyCode::Escape) {
-                    std::process::exit(0);
-                }
-                if is_key_pressed(KeyCode::Space) {
-                    squares.clear();
-                    bullets.clear();
-                    explosions.clear();
-                    circle.x = screen_width() / 2.0;
-                    circle.y = screen_height() / 2.0;
-                    score = 0;
-                    game_state = GameState::Playing;
-                }
-                show_message("McGame shooter", 0.0, RED);
-                show_message("Press space to start, escape to quit", 1.0, WHITE);
+                root_ui().window(
+                    hash!(),
+                    vec2(
+                        screen_width() / 2.0 - window_size.x / 2.0,
+                        screen_height() / 2.0 - window_size.y / 2.0,
+                    ),
+                    window_size,
+                    |ui| {
+                        ui.label(vec2(80.0, -34.0), "Huvudmeny");
+                        if ui.button(vec2(45.0, 25.0), "Spela") {
+                            squares.clear();
+                            bullets.clear();
+                            explosions.clear();
+                            circle.x = screen_width() / 2.0;
+                            circle.y = screen_height() / 2.0;
+                            score = 0;
+                            game_state = GameState::Playing;
+                        }
+                        if ui.button(vec2(20.0, 125.0), "Avsluta") {
+                            std::process::exit(0);
+                        }
+                    },
+                );
             }
             GameState::Playing => {
                 let delta_time = get_frame_time();
